@@ -28,7 +28,7 @@ const isValidObjectId = (id) => ObjectId.isValid(id) && new ObjectId(id) == id;
 async function run() {
   try {
     // Connect the client to the server (optional starting in v4.7)
-    await client.connect();
+    // await client.connect();
 
     const productCollection = client.db("sujuBotanica").collection("products");
     const cartCollection = client.db("sujuBotanica").collection("carts");
@@ -223,29 +223,38 @@ async function run() {
     // Fetch products by category
     app.get("/products/categories/:categoryName", async (req, res) => {
       const { categoryName } = req.params;
-
-      // Fetch products from the database where the category matches
-      const result = await productCollection
-        .find({ category: { $regex: new RegExp(categoryName, "i") } }) // Case-insensitive search
-        .toArray();
-
-      // If no products are found, return a 404 status
-      if (result.length === 0) {
-        return res.send(
-          { message: `No products found in category: ${categoryName}` },
-          404
-        );
+    
+      try {
+        // Fetch products from the database where the category exists and matches
+        const result = await productCollection
+          .find({ 
+            category: { 
+              $exists: true,    // Ensure the category field exists
+              $ne: null,        // Ensure the category is not null
+              $regex: new RegExp(categoryName, "i") // Case-insensitive search
+            } 
+          })
+          .toArray();
+    
+        // If no products are found, return a 404 status
+        if (result.length === 0) {
+          return res.status(404).send({ message: `No products found in category: ${categoryName}` });
+        }
+    
+        // Send the products back to the client
+        res.send(result);
+      } catch (error) {
+        console.error("Error fetching products by category:", error);
+        res.status(500).send({ error: "An error occurred while fetching products." });
       }
-
-      // Send the products back to the client
-      res.send(result);
     });
+    
 
     // Send a ping to confirm a successful connection
-    await client.db("admin").command({ ping: 1 });
-    console.log(
-      "Pinged your deployment. You successfully connected to MongoDB!"
-    );
+    // await client.db("admin").command({ ping: 1 });
+    // console.log(
+    //   "Pinged your deployment. You successfully connected to MongoDB!"
+    // );
   } finally {
     // Ensures that the client will close when you finish/error
     // await client.close();
